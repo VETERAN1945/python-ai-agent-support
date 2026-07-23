@@ -104,3 +104,4 @@ This is a learning project, not production code. Known gaps:
 - **Sessions live in process memory** — a restart wipes every conversation.
 - Documents are hardcoded, there's no authentication, and history grows without
   limit until it hits the token ceiling.
+<img width="1867" height="876" alt="image" src="https://github.com/user-attachments/assets/24af8766-bc77-4e06-862f-226cdbe48a26" />
