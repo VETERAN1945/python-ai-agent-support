@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAG Support Agent — built in pure Python · Max Badyula</title>
+<meta name="description" content="A support agent with memory, tool-calling and RAG, written without agent frameworks — to see where the model ends and the code begins.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#E8EBEF;
+  --panel:#F3F5F7;
+  --ink:#16212B;
+  --ink-soft:#54646F;
+  --rule:#C4CDD6;
+  --signal:#1F5F8B;
+  --broken:#8C3F26;
+  --code-tint:#DDE5EC;
+  --model-tint:#E6E0EC;
+  --display:"Space Grotesk",system-ui,sans-serif;
+  --body:"Source Serif 4",Georgia,serif;
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  background:var(--paper);
+  background-image:
+    repeating-linear-gradient(to right,rgba(22,33,43,.045) 0 1px,transparent 1px 40px),
+    repeating-linear-gradient(to bottom,rgba(22,33,43,.045) 0 1px,transparent 1px 40px);
+  color:var(--ink);
+  font-family:var(--body);
+  font-size:17px;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:880px;margin:0 auto;padding:0 24px}
+a{color:var(--signal)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--signal);outline-offset:3px}
+
+/* ---------- masthead ---------- */
+header{padding:56px 0 0}
+.eyebrow{
+  font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--ink-soft);display:flex;gap:14px;flex-wrap:wrap;align-items:center;
+}
+.eyebrow span::before{content:"·";margin-right:14px;color:var(--rule)}
+.eyebrow span:first-child::before{content:none;margin:0}
+h1{
+  font-family:var(--display);font-weight:700;font-size:clamp(34px,6vw,58px);
+  line-height:1.04;letter-spacing:-.02em;margin:22px 0 0;max-width:16ch;
+}
+.standfirst{
+  font-size:clamp(18px,2.4vw,21px);color:var(--ink-soft);max-width:60ch;margin:20px 0 0;
+}
+.meta{
+  margin:34px 0 0;padding:14px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);
+  font-family:var(--mono);font-size:12.5px;color:var(--ink-soft);
+  display:flex;gap:8px 26px;flex-wrap:wrap;
+}
+.meta b{color:var(--ink);font-weight:400}
+
+/* ---------- sections ---------- */
+section{padding:64px 0 0}
+.label{
+  font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--ink-soft);margin:0 0 10px;
+}
+h2{
+  font-family:var(--display);font-weight:700;font-size:clamp(22px,3.4vw,30px);
+  letter-spacing:-.01em;margin:0 0 14px;line-height:1.15;
+}
+h3{font-family:var(--display);font-weight:500;font-size:19px;margin:0 0 6px}
+p{margin:0 0 16px;max-width:66ch}
+.lede{font-size:18.5px}
+
+/* ---------- the ruler (signature) ---------- */
+.ruler-set{margin:26px 0 0;display:grid;gap:22px}
+.ruler{
+  background:var(--panel);border:1px solid var(--rule);padding:20px 22px 16px;
+}
+.ruler-head{
+  display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap;
+  font-family:var(--mono);font-size:12px;letter-spacing:.04em;
+}
+.ruler-head .who{color:var(--ink);font-weight:700}
+.ruler-head .verdict{color:var(--broken)}
+.ruler.ok .ruler-head .verdict{color:var(--signal)}
+.track{position:relative;height:62px;margin:20px 0 0}
+.axis{position:absolute;left:0;right:0;top:34px;height:1px;background:var(--rule)}
+.tick{position:absolute;top:22px;transform:translateX(-50%);text-align:center}
+.tick i{display:block;width:1px;height:25px;background:var(--broken);margin:0 auto}
+.ruler.ok .tick i{background:var(--signal)}
+.tick.win i{width:3px;background:var(--ink)}
+.tick b{
+  display:block;font-family:var(--mono);font-size:11px;font-weight:400;color:var(--ink-soft);
+  margin-top:5px;white-space:nowrap;
+}
+.tick.win b{color:var(--ink);font-weight:700}
+.cluster{
+  position:absolute;top:47px;left:50%;transform:translateX(-50%);
+  font-family:var(--mono);font-size:11px;color:var(--ink-soft);white-space:nowrap;
+}
+.brace{position:absolute;top:22px;left:44%;right:44%;height:25px;
+  border:1px solid var(--broken);border-bottom:none;opacity:.5}
+.gap-note{
+  font-family:var(--mono);font-size:12px;color:var(--ink-soft);
+  border-top:1px dashed var(--rule);padding-top:10px;margin-top:6px;
+}
+.gap-note b{color:var(--ink)}
+
+/* ---------- flow ---------- */
+.flow{margin:24px 0 0;display:grid;gap:10px}
+.step{
+  display:grid;grid-template-columns:76px 1fr;gap:16px;align-items:start;
+  border:1px solid var(--rule);padding:13px 16px;background:var(--panel);
+}
+.step.model{background:var(--model-tint)}
+.step.code{background:var(--code-tint)}
+.who-tag{
+  font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--ink-soft);padding-top:4px;
+}
+.step p{margin:0;font-size:15.5px;max-width:none}
+.step strong{font-family:var(--display);font-weight:500;font-size:16px;display:block}
+.legend{
+  font-family:var(--mono);font-size:12px;color:var(--ink-soft);margin-top:14px;
+  display:flex;gap:20px;flex-wrap:wrap;
+}
+.swatch{display:inline-block;width:11px;height:11px;border:1px solid var(--rule);margin-right:6px;vertical-align:-1px}
+.swatch.m{background:var(--model-tint)}
+.swatch.c{background:var(--code-tint)}
+
+/* ---------- findings ---------- */
+.finding{border-left:3px solid var(--ink);padding:2px 0 2px 20px;margin:0 0 30px}
+.finding .num{font-family:var(--mono);font-size:12px;color:var(--ink-soft);letter-spacing:.1em}
+
+pre{
+  font-family:var(--mono);font-size:13px;line-height:1.6;background:var(--panel);
+  border:1px solid var(--rule);padding:14px 16px;overflow-x:auto;margin:0 0 16px;
+}
+code{font-family:var(--mono);font-size:.9em;background:var(--panel);padding:1px 5px;border:1px solid var(--rule)}
+
+/* ---------- gaps list ---------- */
+.gaps{list-style:none;padding:0;margin:20px 0 0;border-top:1px solid var(--rule)}
+.gaps li{border-bottom:1px solid var(--rule);padding:14px 0;display:grid;grid-template-columns:1fr;gap:2px}
+.gaps b{font-family:var(--display);font-weight:500}
+.gaps span{color:var(--ink-soft);font-size:15.5px}
+
+/* ---------- footer ---------- */
+footer{margin:72px 0 0;border-top:1px solid var(--rule);padding:26px 0 64px;
+  font-family:var(--mono);font-size:13px;color:var(--ink-soft);
+  display:flex;gap:10px 28px;flex-wrap:wrap;justify-content:space-between}
+footer a{text-decoration:none}
+footer a:hover{text-decoration:underline}
+
+@media (max-width:640px){
+  body{font-size:16px}
+  .step{grid-template-columns:1fr;gap:6px}
+  .who-tag{padding-top:0}
+  .tick b{font-size:10px}
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow"><span>Max Badyula</span><span>AI &amp; Automation Engineer</span><span>Mykolaiv, UA</span></div>
+  <h1>A support agent, taken apart.</h1>
+  <p class="standfirst">Memory, tool-calling and retrieval, written in pure Python with no agent framework — to find out exactly where the model stops and the code has to start.</p>
+  <div class="meta">
+    <span><b>Stack</b> FastAPI · Groq (Llama 3.3 70B) · sentence-transformers · NumPy</span>
+    <span><b>Code</b> <a href="https://github.com/VETERAN1945/python-ai-agent-support">github.com/VETERAN1945/python-ai-agent-support</a></span>
+  </div>
+</header>
+
+<section>
+  <p class="label">Why</p>
+  <h2>The same agent already worked. I couldn't see inside it.</h2>
+  <p class="lede">I had built this affiliate-support agent in n8n, where every layer sits behind a node: the tool call, the memory, the retrieval. It answered, the answers looked convincing, and that was all I could observe.</p>
+  <p>So I rebuilt it from nothing in Python — one layer at a time, printing every intermediate value to the terminal. Two failures showed up that had been invisible in the visual builder. Both are below.</p>
+</section>
+
+<section>
+  <p class="label">Finding 01</p>
+  <h2>Retrieval that returns a confident wrong answer</h2>
+  <p>Documents are matched by embedding distance: the question becomes a 384-dimension vector, so does every document, and NumPy measures which is closest. With <code>all-MiniLM-L6-v2</code> the three documents landed on top of each other — the <em>all</em> in its name means all <em>English</em> datasets, and the knowledge base is in Russian.</p>
+  <p>Nothing failed. No exception, no warning, no empty result. The agent picked a document and answered from it — by coin flip.</p>
+
+  <div class="ruler-set">
+    <div class="ruler">
+      <div class="ruler-head"><span class="who">all-MiniLM-L6-v2 · English-only</span><span class="verdict">selection by noise</span></div>
+      <div class="track">
+        <div class="axis"></div>
+        <div class="brace"></div>
+        <div class="tick" style="left:47.4%"><i></i></div>
+        <div class="tick" style="left:50%"><i></i></div>
+        <div class="tick" style="left:52.6%"><i></i></div>
+        <div class="cluster">docs a, b, c — indistinguishable</div>
+      </div>
+      <p class="gap-note">Spread between first and second place: <b>0.005</b>. The winner is whichever way the noise fell.</p>
+    </div>
+
+    <div class="ruler ok">
+      <div class="ruler-head"><span class="who">paraphrase-multilingual-MiniLM-L12-v2</span><span class="verdict">clear winner</span></div>
+      <div class="track">
+        <div class="axis"></div>
+        <div class="tick win" style="left:8%"><i></i><b>3.605 · a</b></div>
+        <div class="tick" style="left:66%"><i></i><b>4.724 · c</b></div>
+        <div class="tick" style="left:84%"><i></i><b>4.750 · b</b></div>
+      </div>
+      <p class="gap-note">Question: <em>“How much do you pay partners?”</em> — gap to second place <b>1.12</b>. Across the test set, gaps ran <b>0.63–1.24</b>.</p>
+    </div>
+  </div>
+  <p style="margin-top:20px">Absolute distances aren't comparable between models — the vector scales differ. The gap inside a single run is the thing that means something, and it is the number worth printing.</p>
+</section>
+
+<section>
+  <p class="label">Finding 02</p>
+  <h2>Search the user's question, not the model's paraphrase of it</h2>
+  <p>The model decides which tool to call and fills in its arguments. For the search tool it often compressed a whole question down to one word — <em>“partners”</em>. A single word gives a vector with almost no direction: near-equally close to every document.</p>
+  <p>The fix was one line. The numbers the model invents for a multiply tool can't come from anywhere else, so those stay. But the text of the question I already have, clean and unmodified.</p>
+<pre>if tool_name == "multiply":
+    result = multiply(**args)          # only the model has these numbers
+else:
+    result = search_docs(q.message)    # was: search_docs(**args)</pre>
+  <p>Same question, different document retrieved — the right one. The rule that came out of it: take back from the model everything you can obtain yourself; leave it only what you can't.</p>
+</section>
+
+<section>
+  <p class="label">How a request runs</p>
+  <h2>Two kinds of step, and it matters which is which</h2>
+  <div class="flow">
+    <div class="step code"><div class="who-tag">Code</div><p><strong>POST /chat</strong>Pydantic validates the body; the session for this <code>user_id</code> is loaded and the message appended.</p></div>
+    <div class="step model"><div class="who-tag">Model</div><p><strong>First completion</strong>Reads the tool descriptions and decides which tool to call, if any.</p></div>
+    <div class="step code"><div class="who-tag">Code</div><p><strong>Tool runs here</strong>Arguments arrive as a string, parsed with <code>json.loads</code>. Retrieval embeds the question and takes the minimum distance in NumPy. The document is chosen by arithmetic, not by judgement.</p></div>
+    <div class="step model"><div class="who-tag">Model</div><p><strong>Second completion</strong>Gets the tool result back and phrases the reply.</p></div>
+    <div class="step code"><div class="who-tag">Code</div><p><strong>Response</strong>The exchange is appended to the session and returned as JSON.</p></div>
+  </div>
+  <p class="legend"><span><span class="swatch m"></span>model — understands and phrases</span><span><span class="swatch c"></span>code — validates, measures, remembers</span></p>
+  <p style="margin-top:18px">Anything that has to be exact was moved out of the model and into code. The model is left with the part where exactness isn't required.</p>
+</section>
+
+<section>
+  <p class="label">Failure handling</p>
+  <h2>A crash must not poison the next request</h2>
+  <p>Groq regularly emits a malformed tool call — <code>400 tool_use_failed</code>, three times across five requests in one run. Catching it and returning “something went wrong” isn't enough: the session now holds a tool request with no matching result, and the <em>next</em> message from that user breaks on the corrupted history.</p>
+  <p>So the length of the history is recorded before the work starts, and everything written past that mark is deleted in the <code>except</code>. A savepoint and a rollback, in the SQL sense. The <code>try/except</code> saves the current request; the rollback saves every future one.</p>
+  <pre>snapshot = len(history)      # after appending the user message
+...
+except Exception as e:
+    del history[snapshot:]   # nothing orphaned survives</pre>
+  <p>Verified against four real failures — one expired key, three malformed tool calls. Every session came back holding exactly the user message and the reply.</p>
+  <p>This class of bug doesn't exist in a visual builder: there the workflow dies together with its data. It appears the moment state outlives the call.</p>
+</section>
+
+<section>
+  <p class="label">Known gaps</p>
+  <h2>What isn't here, on purpose</h2>
+  <p>A learning project, a long way from production. The honest list:</p>
+  <ul class="gaps">
+    <li><b>No system prompt.</b><span>Found on the final run: retrieval returned the correct document — multi-accounting is banned — and the model answered the opposite, straight from its weights. Nothing in the code makes the document authoritative. Next step.</span></li>
+    <li><b>No relevance cut-off.</b><span>The nearest document is always returned, however far away everything is. It needs to be able to say it found nothing.</span></li>
+    <li><b>No retry on malformed tool calls.</b><span>A frequent error that a repeated request usually clears.</span></li>
+    <li><b>Sessions live in process memory.</b><span>A restart wipes every conversation.</span></li>
+    <li><b>Documents are hard-coded, and there is no auth.</b><span>Changing a document means editing the code and restarting. Any caller can send someone else's <code>user_id</code> and read their history.</span></li>
+    <li><b>History grows without limit.</b><span>It will reach the token ceiling eventually.</span></li>
+  </ul>
+  <p style="margin-top:22px">What the project actually taught, beyond the code: the more an error costs, the less freedom the model gets. Cheap questions can be phrased by the model. Money, bans and deadlines should come as text from code. Very expensive cases shouldn't reach a bot at all.</p>
+</section>
+
+<footer>
+  <span>Max Badyula · AI &amp; Automation Engineer</span>
+  <span>
+    <a href="https://github.com/VETERAN1945/python-ai-agent-support">Repository</a> ·
+    <a href="https://github.com/VETERAN1945">GitHub</a> ·
+    <a href="https://www.linkedin.com/in/max-badula-0a60b7271">LinkedIn</a> ·
+    <a href="mailto:max234189@gmail.com">Email</a>
+  </span>
+</footer>
+
+</div>
+</body>
+</html>
