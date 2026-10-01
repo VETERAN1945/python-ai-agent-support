@@ -10,6 +10,7 @@ load_dotenv()
 app = FastAPI()
 client = Groq()
 sessions = {}
+LLM = "openai/gpt-oss-120b"
 
 docs = {
     "a": "Партнёр получает 30% от суммы платежей приведённого клиента. Выплаты раз в месяц, минимум для вывода — 50 долларов, на USDT или банковскую карту.",
@@ -40,7 +41,7 @@ def search_docs(query):
             best_dist = dist
             best_key = key
     print("НАЙДЕН ДОК:", best_key)
-    return docs[best_key]
+    return docs[best_key], best_key
 
 
 tools = [
@@ -88,10 +89,11 @@ def chat(q: Question):
     history = sessions[q.user_id]
     history.append({"role": "user", "content": q.message})
     snapshot = len(history)
+    retrieved_doc = None
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=LLM,
             messages=history,
             tools=tools,
         )
@@ -107,7 +109,7 @@ def chat(q: Question):
             if tool_name == "multiply":
                 result = multiply(**args)
             else:
-                result = search_docs(q.message)
+                result, retrieved_doc = search_docs(q.message)
 
             history.append({
                 "role": "tool",
@@ -115,7 +117,7 @@ def chat(q: Question):
                 "content": str(result),
             })
             second = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model=LLM,
                 messages=history,
             )
             reply = second.choices[0].message.content
@@ -129,4 +131,4 @@ def chat(q: Question):
 
     history.append({"role": "assistant", "content": reply})
     print("ПОЛКА:", history)
-    return {"reply": reply}
+    return {"reply": reply, "retrieved_doc": retrieved_doc}
