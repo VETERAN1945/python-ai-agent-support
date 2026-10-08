@@ -23,4 +23,4 @@ with open("evals/dataset.jsonl", encoding="utf-8") as f:
                 break
 
         hit = row["expected_doc"] == data["retrieved_doc"]
-        print(row["id"], hit, data["reply"][:60])
+        print(row["id"], hit, row["question"], "->", data["reply"][:60].replace("\n", " "))
