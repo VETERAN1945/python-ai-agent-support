@@ -130,5 +130,5 @@ def chat(q: Question):
         reply = "Произошла ошибка сервера"
 
     history.append({"role": "assistant", "content": reply})
-    print("ПОЛКА:", history)
+    print("ПОЛКА:", len(history))
     return {"reply": reply, "retrieved_doc": retrieved_doc}
