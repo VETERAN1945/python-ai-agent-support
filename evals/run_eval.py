@@ -1,6 +1,9 @@
 import json
 import time
 import httpx
+from sentence_transformers import SentenceTransformer, util
+
+model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
 
 run_id = str(int(time.time()))
 hits = 0
@@ -34,7 +37,10 @@ with open("evals/dataset.jsonl", encoding="utf-8") as f:
         hit = row["expected_doc"] == data["retrieved_doc"]
         if hit:
             hits += 1
-        print(row["id"], hit, row["question"], "->", data["reply"][:60].replace("\n", " "))
+
+        sim = util.cos_sim(model.encode(data["reply"]), model.encode(row["reference"])).item()
+
+        print(row["id"], hit, round(sim, 2), row["question"], "->", data["reply"][:60].replace("\n", " "))
 
 print("hit@1:", hits, "/", total)
 print("лишних попыток:", retries, "| ошибок осталось:", errors)
