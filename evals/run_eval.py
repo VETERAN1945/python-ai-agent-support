@@ -3,6 +3,10 @@ import time
 import httpx
 
 run_id = str(int(time.time()))
+hits = 0
+total = 0
+retries = 0
+errors = 0
 
 with open("evals/dataset.jsonl", encoding="utf-8") as f:
     for line in f:
@@ -22,5 +26,15 @@ with open("evals/dataset.jsonl", encoding="utf-8") as f:
             if data["reply"] != "Произошла ошибка сервера":
                 break
 
+        total += 1
+        retries += attempt
+        if data["reply"] == "Произошла ошибка сервера":
+            errors += 1
+
         hit = row["expected_doc"] == data["retrieved_doc"]
+        if hit:
+            hits += 1
         print(row["id"], hit, row["question"], "->", data["reply"][:60].replace("\n", " "))
+
+print("hit@1:", hits, "/", total)
+print("лишних попыток:", retries, "| ошибок осталось:", errors)
