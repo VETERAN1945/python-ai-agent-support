@@ -40,7 +40,7 @@ with open("evals/dataset.jsonl", encoding="utf-8") as f:
 
         sim = util.cos_sim(model.encode(data["reply"]), model.encode(row["reference"])).item()
 
-        print(row["id"], hit, round(sim, 2), row["question"], "->", data["reply"][:60].replace("\n", " "))
+        print(row["id"], hit, round(sim, 2), row["question"], "->", data["reply"][:300].replace("\n", " "))
 
 print("hit@1:", hits, "/", total)
 print("лишних попыток:", retries, "| ошибок осталось:", errors)
