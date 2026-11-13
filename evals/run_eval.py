@@ -3,6 +3,9 @@ import time
 import httpx
 from sentence_transformers import SentenceTransformer, util
 
+AUTO_PASS = 0.75
+AUTO_FAIL = 0.25
+
 model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
 
 run_id = str(int(time.time()))
@@ -10,6 +13,9 @@ hits = 0
 total = 0
 retries = 0
 errors = 0
+passed = 0
+failed = 0
+gray = 0
 
 with open("evals/dataset.jsonl", encoding="utf-8") as f:
     for line in f:
@@ -40,7 +46,18 @@ with open("evals/dataset.jsonl", encoding="utf-8") as f:
 
         sim = util.cos_sim(model.encode(data["reply"]), model.encode(row["reference"])).item()
 
-        print(row["id"], hit, round(sim, 2), row["question"], "->", data["reply"][:300].replace("\n", " "))
+        if sim >= AUTO_PASS:
+            verdict = "PASS"
+            passed += 1
+        elif sim <= AUTO_FAIL:
+            verdict = "FAIL"
+            failed += 1
+        else:
+            verdict = "GRAY"
+            gray += 1
+
+        print(row["id"], hit, round(sim, 2), verdict, row["question"], "->", data["reply"][:300].replace("\n", " "))
 
 print("hit@1:", hits, "/", total)
 print("лишних попыток:", retries, "| ошибок осталось:", errors)
+print("PASS:", passed, "| FAIL:", failed, "| GRAY (судье):", gray)
